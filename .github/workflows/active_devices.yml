@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Build UEFI for active devices
-        run: bash ./setup_env.sh -p apt && bash ./build_active_devices.sh -r DEBUG
+        run: bash ./setup_env.sh -p apt && python3 build_uefi.py -d giulia
 
       - name: Upload UEFI images
         uses: actions/upload-artifact@v7
