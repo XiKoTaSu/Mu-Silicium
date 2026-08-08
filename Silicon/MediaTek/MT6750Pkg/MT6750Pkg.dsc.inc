@@ -55,7 +55,8 @@
   ClockImplLib|MT6750Pkg/Library/ClockImplLib/ClockImplLib.inf
   PmicWrapperImplLib|MT6750Pkg/Library/PmicWrapperImplLib/PmicWrapperImplLib.inf
   MsdcImplLib|MT6750Pkg/Library/MsdcImplLib/MsdcImplLib.inf
-
+  
+[Components]
   #
   # Custom Drivers
   # 
