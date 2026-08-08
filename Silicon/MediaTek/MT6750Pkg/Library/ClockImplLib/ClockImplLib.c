@@ -10,7 +10,7 @@
 #include <Library/DebugLib.h>
 #include <Library/IoLib.h>*/
 #include <Library/ClockImplLib.h>
-#include <MT6750ClkEnum.h>
+#include <Library/MT6750ClkEnum.h>
 
 //
 // ============================================================

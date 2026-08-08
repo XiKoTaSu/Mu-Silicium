@@ -6,7 +6,7 @@
 #include <Protocol/MtkGpio.h>
 #include <Protocol/MtkClock.h>
 #include <Protocol/MtkPmic.h>
-#include <MT6750ClkEnum.h>
+#include <Library/MT6750ClkEnum.h>
 //
 // MSDC Platform Info - MT6750/MT6755 specific
 //
