@@ -1,16 +1,9 @@
-/** @file
-  MT6750 Clock Implementation Library
-  Based on MT6755 clock driver (clk-mt6755.c)
-
-  Copyright (c) 2025, Your Name. All rights reserved.
-  SPDX-License-Identifier: BSD-2-Clause-Patent
-**/
-
-/*#include <Library/BaseLib.h>
+#include <Uefi.h>
 #include <Library/DebugLib.h>
-#include <Library/IoLib.h>*/
+#include <Library/IoLib.h>
+#include <Library/BaseLib.h>
 #include <Library/ClockImplLib.h>
-#include <Library/MT6750ClkEnum.h>
+#include <Mt6750ClkEnum.h>
 
 //
 // ============================================================
@@ -18,72 +11,7 @@
 // ============================================================
 #define AP_MIXED_BASE   0x1000c000   // apmixedsys
 #define TOPCKGEN_BASE   0x10000000   // topckgen
-#define INFRACFG_BASE   0x10201000   // infracfg
-
-#ifndef ClkApMixed
-#define ClkApMixed      0
-#define ClkTopCkGen     1
-#define ClkInfraCfg     2
-#endif
-
-//
-// ============================================================
-//  Clock ID 枚举
-// ============================================================
-/*typedef enum {
-  // --- Fixed ---
-  TOP_CLK26M = 0,
-  TOP_F_FRTC,
-
-  // --- PLLs (APMIXED) ---
-  AP_ARMSPLL = 100,
-  AP_MAINPLL,
-  AP_UNIVPLL,
-  AP_MSDCPLL,
-  AP_MMPLL,
-  AP_APLL1,
-
-  // --- Factors ---
-  TOP_SYSPLL_CK = 200,
-  TOP_SYSPLL1_CK,
-  TOP_SYSPLL1_D2,
-  TOP_SYSPLL1_D4,
-  TOP_SYSPLL2_CK,
-  TOP_SYSPLL2_D2,
-  TOP_SYSPLL2_D4,
-  TOP_SYSPLL_D3,
-  TOP_SYSPLL_D5,
-  TOP_SYSPLL_D7,
-  TOP_UNIVPLL_CK,
-  TOP_UNIVPLL_D2,
-  TOP_UNIVPLL_D3,
-  TOP_UNIVPLL_D5,
-  TOP_UNIVPLL1_CK,
-  TOP_UNIVPLL1_D2,
-  TOP_UNIVPLL1_D4,
-  TOP_UNIVPLL2_CK,
-  TOP_UNIVPLL2_D2,
-  TOP_UNIVPLL2_D4,
-  TOP_UNIVPLL2_D8,
-  TOP_MSDCPLL_CK,
-  TOP_MSDCPLL_D2,
-  TOP_MSDCPLL_D4,
-  TOP_MMPLL_CK,
-
-  // --- MUXes (TOPCKGEN) ---
-  TOP_AXI_SEL = 300,
-  TOP_UART_SEL,
-  TOP_MFG_SEL,
-  TOP_MSDC50_0_HCLK_SEL,
-  TOP_MSDC50_0_SEL,
-
-  // --- INFRA Gates ---
-  INFRA_APXGPT = 400,
-  INFRA_UART0,
-  INFRA_MSDC0,
-
-  MAX_CLOCK_ID,
-} MT6750_CLOCK_ID;*/
+#define INFRACFG_BASE   0x10201000   // infracfg_ao
 
 //
 // ============================================================
@@ -96,16 +24,16 @@ STATIC CONST UINT32 TopUartSelParents[] = {
 
 STATIC CONST UINT32 TopAxiSelParents[] = {
   TOP_CLK26M,        // 0: 26MHz
-  TOP_SYSPLL1_D4,    // 1: MAINPLL/2/4
-  TOP_SYSPLL2_D2,    // 2: MAINPLL/3/2
-  TOP_CLK26M,        // 3: placeholder (osc_d8 not needed in UEFI)
+  TOP_SYSPLL1_D4,    // 1
+  TOP_SYSPLL2_D2,    // 2
+  TOP_CLK26M,        // 3
 };
 
 STATIC CONST UINT32 TopMsdc50_0HclkSelParents[] = {
-  TOP_CLK26M,        // 0
-  TOP_SYSPLL1_D2,    // 1: MAINPLL/2
-  TOP_SYSPLL2_D2,    // 2: MAINPLL/3/2
-  TOP_SYSPLL2_D4,    // 3: MAINPLL/3/4 (approximation for SYSPLL4_D2)
+  TOP_CLK26M,
+  TOP_SYSPLL1_D2,
+  TOP_SYSPLL2_D2,
+  TOP_SYSPLL2_D4,
 };
 
 STATIC CONST UINT32 TopMsdc50_0SelParents[] = {
@@ -121,15 +49,15 @@ STATIC CONST UINT32 TopMsdc50_0SelParents[] = {
 };
 
 STATIC CONST UINT32 TopMfgSelParents[] = {
-  TOP_CLK26M,        // 0
-  TOP_MMPLL_CK,      // 1: MMPLL
-  TOP_UNIVPLL_D3,    // 2
-  TOP_SYSPLL_D3,     // 3
+  TOP_CLK26M,
+  TOP_MMPLL_CK,
+  TOP_UNIVPLL_D3,
+  TOP_SYSPLL_D3,
 };
 
 //
 // ============================================================
-//  时钟描述表
+//  时钟描述表（严格对齐 MTK_CLOCK_DESC / MTK_PLL_DESC / MTK_GATE_DESC）
 // ============================================================
 MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
 
@@ -156,8 +84,6 @@ MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
     .Pll        = {
       .BaseOffset    = 0x210,
       .PowerOffset   = 0x21C,
-      .PowerOnVal    = 0x00000000,  // 写0上电（MTK PWR_CON惯例）
-      .PowerOffVal   = 0x00000001,  // 写1掉电
       .EnMask        = BIT0,
       .ResetBarMask  = 0,
       .PostDivOffset = 0x214,
@@ -179,9 +105,7 @@ MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
     .Pll        = {
       .BaseOffset    = 0x220,
       .PowerOffset   = 0x22C,
-      .PowerOnVal    = 0x00000000,
-      .PowerOffVal   = 0x00000001,
-      .EnMask        = 0xF0000101,  // Linux 原始值
+      .EnMask        = 0xF0000101,
       .ResetBarMask  = 0,
       .PostDivOffset = 0x224,
       .PostDivShift  = 24,
@@ -202,8 +126,6 @@ MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
     .Pll        = {
       .BaseOffset    = 0x230,
       .PowerOffset   = 0x23C,
-      .PowerOnVal    = 0x00000000,
-      .PowerOffVal   = 0x00000001,
       .EnMask        = 0xFC000001,
       .ResetBarMask  = BIT23,
       .PostDivOffset = 0x234,
@@ -225,9 +147,8 @@ MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
     .Pll        = {
       .BaseOffset    = 0x250,
       .PowerOffset   = 0x25C,
-      .PowerOnVal    = 0x00000000,
-      .PowerOffVal   = 0x00000001,
       .EnMask        = BIT0,
+      .ResetBarMask  = 0,
       .PostDivOffset = 0x254,
       .PostDivShift  = 24,
       .FMax          = 800000000ULL,
@@ -247,9 +168,8 @@ MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
     .Pll        = {
       .BaseOffset    = 0x240,
       .PowerOffset   = 0x24C,
-      .PowerOnVal    = 0x00000000,
-      .PowerOffVal   = 0x00000001,
       .EnMask        = BIT0,
+      .ResetBarMask  = 0,
       .PostDivOffset = 0x244,
       .PostDivShift  = 24,
       .FMax          = 1200000000ULL,
@@ -269,16 +189,15 @@ MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
     .Pll        = {
       .BaseOffset    = 0x2A0,
       .PowerOffset   = 0x2B0,
-      .PowerOnVal    = 0x00000000,
-      .PowerOffVal   = 0x00000001,
       .EnMask        = BIT0,
+      .ResetBarMask  = 0,
       .PostDivOffset = 0x2A4,
       .PostDivShift  = 24,
-      .FMax          = 393216000ULL,  // 音频常用 49.152MHz × 8
+      .FMax          = 393216000ULL,
       .FMin          = 49152000ULL,
-      .PcwOffset     = 0x2A8,        // APLL 的 PCW 在 CON2
+      .PcwOffset     = 0x2A8,
       .PcwShift      = 0,
-      .PcwBits       = 32,           // ★ APLL 是 32 位
+      .PcwBits       = 32,
       .PcwiBits      = 8,
       .Parent        = TOP_CLK26M,
     },
@@ -286,128 +205,128 @@ MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
 
   /* ==================== Factors ==================== */
   [TOP_SYSPLL_CK] = {
-    .Id     = TOP_SYSPLL_CK, .Name = "TOP_SYSPLL_CK",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_SYSPLL_CK, .Name = "TOP_SYSPLL_CK",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = AP_MAINPLL, .Mult = 1, .Div = 1 },
   },
   [TOP_SYSPLL1_CK] = {
-    .Id     = TOP_SYSPLL1_CK, .Name = "TOP_SYSPLL1_CK",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_SYSPLL1_CK, .Name = "TOP_SYSPLL1_CK",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = AP_MAINPLL, .Mult = 1, .Div = 2 },
   },
   [TOP_SYSPLL1_D2] = {
-    .Id     = TOP_SYSPLL1_D2, .Name = "TOP_SYSPLL1_D2",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_SYSPLL1_D2, .Name = "TOP_SYSPLL1_D2",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = TOP_SYSPLL1_CK, .Mult = 1, .Div = 2 },
   },
   [TOP_SYSPLL1_D4] = {
-    .Id     = TOP_SYSPLL1_D4, .Name = "TOP_SYSPLL1_D4",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_SYSPLL1_D4, .Name = "TOP_SYSPLL1_D4",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = TOP_SYSPLL1_CK, .Mult = 1, .Div = 4 },
   },
   [TOP_SYSPLL2_CK] = {
-    .Id     = TOP_SYSPLL2_CK, .Name = "TOP_SYSPLL2_CK",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_SYSPLL2_CK, .Name = "TOP_SYSPLL2_CK",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = AP_MAINPLL, .Mult = 1, .Div = 3 },
   },
   [TOP_SYSPLL2_D2] = {
-    .Id     = TOP_SYSPLL2_D2, .Name = "TOP_SYSPLL2_D2",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_SYSPLL2_D2, .Name = "TOP_SYSPLL2_D2",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = TOP_SYSPLL2_CK, .Mult = 1, .Div = 2 },
   },
   [TOP_SYSPLL2_D4] = {
-    .Id     = TOP_SYSPLL2_D4, .Name = "TOP_SYSPLL2_D4",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_SYSPLL2_D4, .Name = "TOP_SYSPLL2_D4",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = TOP_SYSPLL2_CK, .Mult = 1, .Div = 4 },
   },
   [TOP_SYSPLL_D3] = {
-    .Id     = TOP_SYSPLL_D3, .Name = "TOP_SYSPLL_D3",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_SYSPLL_D3, .Name = "TOP_SYSPLL_D3",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = AP_MAINPLL, .Mult = 1, .Div = 3 },
   },
   [TOP_SYSPLL_D5] = {
-    .Id     = TOP_SYSPLL_D5, .Name = "TOP_SYSPLL_D5",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_SYSPLL_D5, .Name = "TOP_SYSPLL_D5",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = AP_MAINPLL, .Mult = 1, .Div = 5 },
   },
   [TOP_SYSPLL_D7] = {
-    .Id     = TOP_SYSPLL_D7, .Name = "TOP_SYSPLL_D7",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_SYSPLL_D7, .Name = "TOP_SYSPLL_D7",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = AP_MAINPLL, .Mult = 1, .Div = 7 },
   },
   [TOP_UNIVPLL_CK] = {
-    .Id     = TOP_UNIVPLL_CK, .Name = "TOP_UNIVPLL_CK",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_UNIVPLL_CK, .Name = "TOP_UNIVPLL_CK",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = AP_UNIVPLL, .Mult = 1, .Div = 1 },
   },
   [TOP_UNIVPLL_D2] = {
-    .Id     = TOP_UNIVPLL_D2, .Name = "TOP_UNIVPLL_D2",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_UNIVPLL_D2, .Name = "TOP_UNIVPLL_D2",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = AP_UNIVPLL, .Mult = 1, .Div = 2 },
   },
   [TOP_UNIVPLL_D3] = {
-    .Id     = TOP_UNIVPLL_D3, .Name = "TOP_UNIVPLL_D3",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_UNIVPLL_D3, .Name = "TOP_UNIVPLL_D3",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = AP_UNIVPLL, .Mult = 1, .Div = 3 },
   },
   [TOP_UNIVPLL_D5] = {
-    .Id     = TOP_UNIVPLL_D5, .Name = "TOP_UNIVPLL_D5",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_UNIVPLL_D5, .Name = "TOP_UNIVPLL_D5",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = AP_UNIVPLL, .Mult = 1, .Div = 5 },
   },
   [TOP_UNIVPLL1_CK] = {
-    .Id     = TOP_UNIVPLL1_CK, .Name = "TOP_UNIVPLL1_CK",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_UNIVPLL1_CK, .Name = "TOP_UNIVPLL1_CK",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = AP_UNIVPLL, .Mult = 1, .Div = 2 },
   },
   [TOP_UNIVPLL1_D2] = {
-    .Id     = TOP_UNIVPLL1_D2, .Name = "TOP_UNIVPLL1_D2",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_UNIVPLL1_D2, .Name = "TOP_UNIVPLL1_D2",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = TOP_UNIVPLL1_CK, .Mult = 1, .Div = 2 },
   },
   [TOP_UNIVPLL1_D4] = {
-    .Id     = TOP_UNIVPLL1_D4, .Name = "TOP_UNIVPLL1_D4",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_UNIVPLL1_D4, .Name = "TOP_UNIVPLL1_D4",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = TOP_UNIVPLL1_CK, .Mult = 1, .Div = 4 },
   },
   [TOP_UNIVPLL2_CK] = {
-    .Id     = TOP_UNIVPLL2_CK, .Name = "TOP_UNIVPLL2_CK",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_UNIVPLL2_CK, .Name = "TOP_UNIVPLL2_CK",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = AP_UNIVPLL, .Mult = 1, .Div = 3 },
   },
   [TOP_UNIVPLL2_D2] = {
-    .Id     = TOP_UNIVPLL2_D2, .Name = "TOP_UNIVPLL2_D2",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_UNIVPLL2_D2, .Name = "TOP_UNIVPLL2_D2",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = TOP_UNIVPLL2_CK, .Mult = 1, .Div = 2 },
   },
   [TOP_UNIVPLL2_D4] = {
-    .Id     = TOP_UNIVPLL2_D4, .Name = "TOP_UNIVPLL2_D4",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_UNIVPLL2_D4, .Name = "TOP_UNIVPLL2_D4",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = TOP_UNIVPLL2_CK, .Mult = 1, .Div = 4 },
   },
   [TOP_UNIVPLL2_D8] = {
-    .Id     = TOP_UNIVPLL2_D8, .Name = "TOP_UNIVPLL2_D8",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_UNIVPLL2_D8, .Name = "TOP_UNIVPLL2_D8",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = TOP_UNIVPLL2_CK, .Mult = 1, .Div = 8 },
   },
   [TOP_MSDCPLL_CK] = {
-    .Id     = TOP_MSDCPLL_CK, .Name = "TOP_MSDCPLL_CK",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_MSDCPLL_CK, .Name = "TOP_MSDCPLL_CK",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = AP_MSDCPLL, .Mult = 1, .Div = 1 },
   },
   [TOP_MSDCPLL_D2] = {
-    .Id     = TOP_MSDCPLL_D2, .Name = "TOP_MSDCPLL_D2",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_MSDCPLL_D2, .Name = "TOP_MSDCPLL_D2",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = AP_MSDCPLL, .Mult = 1, .Div = 2 },
   },
   [TOP_MSDCPLL_D4] = {
-    .Id     = TOP_MSDCPLL_D4, .Name = "TOP_MSDCPLL_D4",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_MSDCPLL_D4, .Name = "TOP_MSDCPLL_D4",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = AP_MSDCPLL, .Mult = 1, .Div = 4 },
   },
   [TOP_MMPLL_CK] = {
-    .Id     = TOP_MMPLL_CK, .Name = "TOP_MMPLL_CK",
-    .Type   = ClockTypeFactors,
+    .Id = TOP_MMPLL_CK, .Name = "TOP_MMPLL_CK",
+    .Type = ClockTypeFactors,
     .Factor = { .Parent = AP_MMPLL, .Mult = 1, .Div = 1 },
   },
 
@@ -424,7 +343,7 @@ MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
       .UpdateOffset = TOPCKGEN_BASE + 0x04,
       .MuxShift     = 0,
       .MuxWidth     = 2,
-      .GateShift    = 0xFFFFFFFF,  // 无独立 gate
+      .GateShift    = 0xFF,    // 无独立 gate
       .UpdateShift  = 0,
       .Parents      = TopAxiSelParents,
       .ParentCount  = ARRAY_SIZE(TopAxiSelParents),
@@ -478,7 +397,7 @@ MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
       .UpdateOffset = TOPCKGEN_BASE + 0x04,
       .MuxShift     = 8,
       .MuxWidth     = 2,
-      .GateShift     = 15,
+      .GateShift    = 15,
       .UpdateShift  = 12,
       .Parents      = TopMsdc50_0HclkSelParents,
       .ParentCount  = ARRAY_SIZE(TopMsdc50_0HclkSelParents),
@@ -520,7 +439,7 @@ MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
       .ParentCount  = ARRAY_SIZE(TopMsdc50_0SelParents),
     },
   },
-  
+
   /* ==================== INFRA Gates ==================== */
   [INFRA_APXGPT] = {
     .Id         = INFRA_APXGPT,
@@ -528,8 +447,12 @@ MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
     .Controller = ClkInfraCfg,
     .Type       = ClockTypeGate,
     .Gate       = {
-      .RegOffset = INFRACFG_BASE + 0x80,   // infra0 SET
-      .Bit       = 6,
+      .SetOffset   = INFRACFG_BASE + 0x80,   // infra0 SET
+      .ClearOffset = INFRACFG_BASE + 0x84,   // infra0 CLR
+      .StatusOffset = 0,
+      .GateShift   = 6,
+      .Inverted    = FALSE,
+      .Parent      = 0,
     },
   },
   [INFRA_UART0] = {
@@ -538,8 +461,12 @@ MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
     .Controller = ClkInfraCfg,
     .Type       = ClockTypeGate,
     .Gate       = {
-      .RegOffset = INFRACFG_BASE + 0x80,   // infra0 SET
-      .Bit       = 22,
+      .SetOffset   = INFRACFG_BASE + 0x80,
+      .ClearOffset = INFRACFG_BASE + 0x84,
+      .StatusOffset = 0,
+      .GateShift   = 22,
+      .Inverted    = FALSE,
+      .Parent      = 0,
     },
   },
   [INFRA_MSDC0] = {
@@ -548,8 +475,12 @@ MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
     .Controller = ClkInfraCfg,
     .Type       = ClockTypeGate,
     .Gate       = {
-      .RegOffset = INFRACFG_BASE + 0x88,   // infra1 SET
-      .Bit       = 2,
+      .SetOffset   = INFRACFG_BASE + 0x88,   // infra1 SET
+      .ClearOffset = INFRACFG_BASE + 0x8C,   // infra1 CLR
+      .StatusOffset = 0,
+      .GateShift   = 2,
+      .Inverted    = FALSE,
+      .Parent      = 0,
     },
   },
   [INFRA_MSDC1] = {
@@ -558,8 +489,12 @@ MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
     .Controller = ClkInfraCfg,
     .Type       = ClockTypeGate,
     .Gate       = {
-      .RegOffset = INFRACFG_BASE + 0x88,       // infra1 SET
-      .Bit       = 4,                           // bit 4 = MSDC1
+      .SetOffset   = INFRACFG_BASE + 0x88,   // infra1 SET
+      .ClearOffset = INFRACFG_BASE + 0x8C,   // infra1 CLR
+      .StatusOffset = 0,
+      .GateShift   = 4,
+      .Inverted    = FALSE,
+      .Parent      = 0,
     },
   },
 };
@@ -568,12 +503,8 @@ UINTN gClockCount = MAX_CLOCK_ID;
 
 //
 // ============================================================
-//  Library Functions
+//  Helper
 // ============================================================
-
-/**
-  获取控制器基地址（如果你的框架已经有这个函数，删掉这段）
-**/
 STATIC UINTN GetControllerBase(UINT8 Controller)
 {
   switch (Controller) {
@@ -584,9 +515,10 @@ STATIC UINTN GetControllerBase(UINT8 Controller)
   }
 }
 
-/**
-  启用时钟 — 对 Gate 类型写 SET 寄存器置位
-**/
+//
+// ============================================================
+//  Enable
+// ============================================================
 EFI_STATUS EFIAPI ClockImplEnable(IN UINT32 ClockId)
 {
   MTK_CLOCK_DESC *Desc = &gClocks[ClockId];
@@ -596,38 +528,37 @@ EFI_STATUS EFIAPI ClockImplEnable(IN UINT32 ClockId)
 
   switch (Desc->Type) {
   case ClockTypeGate:
-    // 写 SET 寄存器，对应的 bit 置 1 = 开启时钟
-    MmioOr32(Desc->Gate.RegOffset, BIT(Desc->Gate.Bit));
+    MmioOr32(Desc->Gate.SetOffset, BIT(Desc->Gate.GateShift));
     break;
 
   case ClockTypeMuxGate:
-    if (Desc->MuxGate.GateShift != 0xFFFFFFFF) {
-      // 有独立 gate bit，关闭 gate（写 0 到 MuxOffset 对应位）
-      // MT6755: gate bit 在 MuxOffset 里，写 0 开启
+    if (Desc->MuxGate.GateShift != 0xFF) {
+      // 开启 gate：清 0
       MmioAnd32(Desc->MuxGate.MuxOffset,
                 ~(BIT(Desc->MuxGate.GateShift)));
     }
     break;
 
   case ClockTypePll: {
-    // 上电 + 使能
     UINTN Base = GetControllerBase(Desc->Controller);
-    MmioWrite32(Base + Desc->Pll.PowerOffset, Desc->Pll.PowerOnVal);
+    // PWR_ON = 写 0
+    MmioWrite32(Base + Desc->Pll.PowerOffset, 0x00000000);
+    // 使能 PLL
     MmioOr32(Base + Desc->Pll.BaseOffset, Desc->Pll.EnMask);
     break;
   }
 
   default:
-    // Fixed / Factors 不需要 enable
     break;
   }
 
   return EFI_SUCCESS;
 }
 
-/**
-  禁用时钟
-**/
+//
+// ============================================================
+//  Disable
+// ============================================================
 EFI_STATUS EFIAPI ClockImplDisable(IN UINT32 ClockId)
 {
   MTK_CLOCK_DESC *Desc = &gClocks[ClockId];
@@ -637,19 +568,19 @@ EFI_STATUS EFIAPI ClockImplDisable(IN UINT32 ClockId)
 
   switch (Desc->Type) {
   case ClockTypeGate:
-    // 写 CLR 寄存器（SET 偏移 +4）
-    MmioOr32(Desc->Gate.RegOffset + 0x04, BIT(Desc->Gate.Bit));
+    MmioOr32(Desc->Gate.ClearOffset, BIT(Desc->Gate.GateShift));
     break;
 
   case ClockTypeMuxGate:
-    if (Desc->MuxGate.GateShift != 0xFFFFFFFF) {
+    if (Desc->MuxGate.GateShift != 0xFF) {
       MmioOr32(Desc->MuxGate.MuxOffset, BIT(Desc->MuxGate.GateShift));
     }
     break;
 
   case ClockTypePll: {
     UINTN Base = GetControllerBase(Desc->Controller);
-    MmioWrite32(Base + Desc->Pll.PowerOffset, Desc->Pll.PowerOffVal);
+    // PWR_OFF = 写 1
+    MmioWrite32(Base + Desc->Pll.PowerOffset, 0x00000001);
     break;
   }
 
@@ -660,9 +591,10 @@ EFI_STATUS EFIAPI ClockImplDisable(IN UINT32 ClockId)
   return EFI_SUCCESS;
 }
 
-/**
-  获取时钟频率（递归向上遍历时钟树）
-**/
+//
+// ============================================================
+//  GetRate
+// ============================================================
 UINT64 EFIAPI ClockImplGetRate(IN UINT32 ClockId)
 {
   MTK_CLOCK_DESC *Desc = &gClocks[ClockId];
@@ -678,11 +610,8 @@ UINT64 EFIAPI ClockImplGetRate(IN UINT32 ClockId)
     return ClockImplGetRate(Desc->Factor.Parent) *
            Desc->Factor.Mult / Desc->Factor.Div;
 
-  case ClockTypePll: {
-    // 简化：返回 FMin（UEFI 阶段不精确算频率也没事）
-    // 完整实现需要读 PCW 寄存器算
+  case ClockTypePll:
     return Desc->Pll.FMin;
-  }
 
   case ClockTypeMuxGate: {
     UINTN Base = GetControllerBase(Desc->Controller);
@@ -694,39 +623,30 @@ UINT64 EFIAPI ClockImplGetRate(IN UINT32 ClockId)
     return 0;
   }
 
-  case ClockTypeGate:
-    // Gate 不改变频率，返回父时钟的频率
-    // 简化：返回 0（INFRA gate 的父频率由 MUX 决定，UEFI 不查）
-    return 0;
-
   default:
     return 0;
   }
 }
 
-/**
-  设置时钟频率（简化版：PLL 不支持动态调频，MUX 选合适父时钟）
-**/
+//
+// ============================================================
+//  SetRate (UEFI 阶段不需要动态调频)
+// ============================================================
 EFI_STATUS EFIAPI ClockImplSetRate(IN UINT32 ClockId, IN UINT64 Rate)
 {
-  MTK_CLOCK_DESC *Desc = &gClocks[ClockId];
-
   if (ClockId >= MAX_CLOCK_ID)
     return EFI_INVALID_PARAMETER;
-
-  // UEFI 阶段一般不需要动态设频率
-  // 如果需要，在这里添加 PLL PCW 计算和 MUX 父选择逻辑
   return EFI_SUCCESS;
 }
 
-/**
-  初始化所有 PLL（在 SEC/PEI 阶段早期调用）
-**/
+//
+// ============================================================
+//  Init
+// ============================================================
 VOID EFIAPI ClockImplInit(VOID)
 {
   DEBUG((DEBUG_INFO, "MT6750: ClockImplInit start\n"));
 
-  // 上电并使能所有 PLL
   ClockImplEnable(AP_ARMSPLL);
   ClockImplEnable(AP_MAINPLL);
   ClockImplEnable(AP_UNIVPLL);
@@ -734,15 +654,11 @@ VOID EFIAPI ClockImplInit(VOID)
   ClockImplEnable(AP_MMPLL);
   ClockImplEnable(AP_APLL1);
 
-  // 等待 PLL 锁定（简化：微秒延迟）
-  // 实际应该轮询 CON1 的锁定位
+  // 等待 PLL 锁定
   MicroSecondDelay(200);
 
-  // 使能 INFRA 关键门控
   ClockImplEnable(INFRA_APXGPT);
   ClockImplEnable(INFRA_UART0);
 
   DEBUG((DEBUG_INFO, "MT6750: ClockImplInit done\n"));
 }
-
-UINTN gClockCount = ARRAY_SIZE (gClocks);

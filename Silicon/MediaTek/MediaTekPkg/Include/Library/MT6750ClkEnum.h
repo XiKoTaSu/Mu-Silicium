@@ -1,17 +1,12 @@
 #ifndef _MT6750_CLK_ENUM_H_
 #define _MT6750_CLK_ENUM_H_
 
-//
-// MT6750/MT6755 Clock ID 枚举
-// 名字与 MsdcImplLib.c 中的引用完全一致，不做重命名
-//
-
 typedef enum {
-  // --- Fixed ---
+  // Fixed
   TOP_CLK26M = 0,
   TOP_F_FRTC,
 
-  // --- PLLs (APMIXED) ---
+  // PLLs
   AP_ARMSPLL = 100,
   AP_MAINPLL,
   AP_UNIVPLL,
@@ -19,7 +14,7 @@ typedef enum {
   AP_MMPLL,
   AP_APLL1,
 
-  // --- Factors ---
+  // Factors
   TOP_SYSPLL_CK = 200,
   TOP_SYSPLL1_CK,
   TOP_SYSPLL1_D2,
@@ -46,21 +41,21 @@ typedef enum {
   TOP_MSDCPLL_D4,
   TOP_MMPLL_CK,
 
-  // --- MUXes (TOPCKGEN) ---
+  // MUXes
   TOP_AXI_SEL = 300,
   TOP_UART_SEL,
   TOP_MFG_SEL,
   TOP_MSDC50_0_HCLK_SEL,
-  TOP_MSDC50_0_SEL,          // ← MsdcImplLib.c 用的名字，保持不变
-  TOP_MSDC30_1_SEL,          // ← 补上，MsdcImplLib.c 用的名字
+  TOP_MSDC50_0_SEL,
+  TOP_MSDC30_1_SEL,
 
-  // --- INFRA Gates ---
+  // INFRA Gates
   INFRA_APXGPT = 400,
   INFRA_UART0,
-  INFRA_MSDC0,               // ← MsdcImplLib.c 用的名字，保持不变
-  INFRA_MSDC1,               // ← 补上，MsdcImplLib.c 用的名字
+  INFRA_MSDC0,
+  INFRA_MSDC1,
 
-  MAX_CLOCK_ID,              // 保持原来的结束标记
+  MAX_CLOCK_ID,
 } MT6750_CLOCK_ID;
 
-#endif // _MT6750_CLK_ENUM_H_
+#endif
