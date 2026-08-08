@@ -3,7 +3,7 @@
 #include <Library/IoLib.h>
 #include <Library/BaseLib.h>
 #include <Library/ClockImplLib.h>
-#include <Mt6750ClkEnum.h>
+#include <Library/MT6750ClkEnum.h>
 
 //
 // ============================================================
