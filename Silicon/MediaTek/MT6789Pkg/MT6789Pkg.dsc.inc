@@ -52,3 +52,9 @@
   ClockImplLib|MT6789Pkg/Library/ClockImplLib/ClockImplLib.inf
   PmicWrapperImplLib|MT6789Pkg/Library/PmicWrapperImplLib/PmicWrapperImplLib.inf
   MsdcImplLib|MT6789Pkg/Library/MsdcImplLib/MsdcImplLib.inf
+  
+  #
+  # Custom Drivers
+  # 
+  MediaTekPkg/Drivers/MT6358PmicDxe/MT6358PmicDxe.inf
+  

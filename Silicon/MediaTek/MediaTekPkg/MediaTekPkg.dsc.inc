@@ -27,5 +27,4 @@
   MediaTekPkg/Drivers/GpioDxe/GpioDxe.inf
   MediaTekPkg/Drivers/ClockDxe/ClockDxe.inf
   MediaTekPkg/Drivers/PmicWrapperDxe/PmicWrapperDxe.inf
-  MediaTekPkg/Drivers/MT6358PmicDxe/MT6358PmicDxe.inf
   MediaTekPkg/Drivers/MsdcDxe/MsdcDxe.inf

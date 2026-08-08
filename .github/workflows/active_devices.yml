@@ -1,7 +1,6 @@
 name: Build UEFI for active devices
 on:
   push:
-    branches: ["main"]
     paths:
       - 'Binaries'
       - 'Common/**'
@@ -29,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Build UEFI for active devices
-        run: bash ./setup_env.sh -p apt && python3 build_uefi.py -d giulia
+        run: bash ./setup_env.sh -p apt && python3 build_uefi.py -d a37 -r DEBUG
 
       - name: Upload UEFI images
         uses: actions/upload-artifact@v7
