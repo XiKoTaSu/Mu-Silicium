@@ -10,6 +10,7 @@
 #include <Library/DebugLib.h>
 #include <Library/IoLib.h>*/
 #include <Library/ClockImplLib.h>
+#include <MT6750ClkEnum.h>
 
 //
 // ============================================================
@@ -29,7 +30,7 @@
 // ============================================================
 //  Clock ID 枚举
 // ============================================================
-typedef enum {
+/*typedef enum {
   // --- Fixed ---
   TOP_CLK26M = 0,
   TOP_F_FRTC,
@@ -82,7 +83,7 @@ typedef enum {
   INFRA_MSDC0,
 
   MAX_CLOCK_ID,
-} MT6750_CLOCK_ID;
+} MT6750_CLOCK_ID;*/
 
 //
 // ============================================================
@@ -501,7 +502,25 @@ MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
       .ParentCount  = ARRAY_SIZE(TopMsdc50_0SelParents),
     },
   },
-
+  [TOP_MSDC30_1_SEL] = {
+    .Id         = TOP_MSDC30_1_SEL,
+    .Name       = "TOP_MSDC30_1_SEL",
+    .Controller = ClkTopCkGen,
+    .Type       = ClockTypeMuxGate,
+    .MuxGate    = {
+      .MuxOffset    = TOPCKGEN_BASE + 0x70,   // CLK_CFG_3
+      .SetOffset    = TOPCKGEN_BASE + 0x70,
+      .ClearOffset  = TOPCKGEN_BASE + 0x70,
+      .UpdateOffset = TOPCKGEN_BASE + 0x04,
+      .MuxShift     = 8,                       // [10:8]
+      .MuxWidth     = 3,
+      .GateShift    = 15,
+      .UpdateShift  = 9,
+      .Parents      = TopMsdc50_0SelParents,   // 复用同一组父时钟
+      .ParentCount  = ARRAY_SIZE(TopMsdc50_0SelParents),
+    },
+  },
+  
   /* ==================== INFRA Gates ==================== */
   [INFRA_APXGPT] = {
     .Id         = INFRA_APXGPT,
@@ -531,6 +550,16 @@ MTK_CLOCK_DESC gClocks[MAX_CLOCK_ID] = {
     .Gate       = {
       .RegOffset = INFRACFG_BASE + 0x88,   // infra1 SET
       .Bit       = 2,
+    },
+  },
+  [INFRA_MSDC1] = {
+    .Id         = INFRA_MSDC1,
+    .Name       = "INFRA_MSDC1",
+    .Controller = ClkInfraCfg,
+    .Type       = ClockTypeGate,
+    .Gate       = {
+      .RegOffset = INFRACFG_BASE + 0x88,       // infra1 SET
+      .Bit       = 4,                           // bit 4 = MSDC1
     },
   },
 };
