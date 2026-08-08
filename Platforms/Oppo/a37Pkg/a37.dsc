@@ -32,7 +32,6 @@
   # DDR Memory
   #
   gArmTokenSpaceGuid.PcdSystemMemoryBase|0x40000000
-  gArmTokenSpaceGuid.PcdSystemMemorySize|0x80000000
 
   #
   # UEFI Stack
@@ -52,7 +51,6 @@
   #
   # Simple Frame Buffer
   #
-  gSiliciumPkgTokenSpaceGuid.PcdFrameBufferBase|0xBC000000
   gSiliciumPkgTokenSpaceGuid.PcdFrameBufferWidth|720
   gSiliciumPkgTokenSpaceGuid.PcdFrameBufferHeight|1280
   gSiliciumPkgTokenSpaceGuid.PcdFrameBufferColorDepth|32
